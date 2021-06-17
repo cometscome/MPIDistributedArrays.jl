@@ -99,19 +99,25 @@ module MPIDistributedArrays
     Base.size(a::MArray) = a.size
 
     function Base.getindex(a::MArray{T,N,A},i...) where {T,N,A}
-        result = Ref{T}()
-        target_rank,local_index = get_targetrank_and_index(a,i...)
-        #println("target_rank ",target_rank)
-        if target_rank == a.myrank
-            #println("target $local_index",a.localpart[local_index])
-            result[] = a.localpart[local_index]
+        isinside,lenind = get_local_or_not(a.localindices,i...)
+        if isinside
+            index = [i[idim] - a.localindices[idim][1]+1 for idim=1:lenind]
+            return a.localpart[index...]
         else
-            #println("localindex = $local_index")
-            MPI.Win_lock(MPI.LOCK_SHARED, target_rank, 0, a.win)
-            MPI.Get(result,  target_rank, local_index-1 , a.win)
-            MPI.Win_unlock(target_rank, a.win)
+            result = Ref{T}()
+            target_rank,local_index = get_targetrank_and_index(a,i...)
+            #println("target_rank ",target_rank)
+            if target_rank == a.myrank
+                #println("target $local_index",a.localpart[local_index])
+                result[] = a.localpart[local_index]
+            else
+                #println("localindex = $local_index")
+                MPI.Win_lock(MPI.LOCK_SHARED, target_rank, 0, a.win)
+                MPI.Get(result,  target_rank, local_index-1 , a.win)
+                MPI.Win_unlock(target_rank, a.win)
+            end
+            return result[]
         end
-        return result[]
     end
 
     function get_local_or_not(indices,i...)
