@@ -39,6 +39,7 @@ function test()
         display(A_M)
         println("\t")
     end
+    free(A_M)
 
 end
 test()

@@ -1,6 +1,6 @@
 module MPIDistributedArrays
     using MPI
-    export MArray,mzeros,distribute
+    export MArray,mzeros,distribute,free
 # Write your package code here.
 
     const masterrank = 0
@@ -13,10 +13,7 @@ module MPIDistributedArrays
         return  MPI.Comm_size(MPI.COMM_WORLD)
     end
 
-    function free(a::MArray{T,N}) where {T,N}
-        MPI.Barrier(a.comm) 
-        MPI.free(a.win)
-    end
+
 
     struct MArray{T,N,A} <: AbstractArray{T,N}
         localpart::Union{Nothing,A}
@@ -92,6 +89,11 @@ module MPIDistributedArrays
         
 
         
+    end
+
+    function free(a::MArray{T,N}) where {T,N}
+        MPI.Barrier(a.comm) 
+        MPI.free(a.win)
     end
 
     Base.size(a::MArray) = a.size
