@@ -16,7 +16,7 @@ module MPIDistributedArrays
 
 
     struct MArray{T,N,A} <: AbstractArray{T,N}
-        localpart::Union{Nothing,A}
+        localpart::A#Union{Nothing,A}
         localindices::Array{UnitRange{Int64},1}
         myrank::Int64
         nprocs::Int64
