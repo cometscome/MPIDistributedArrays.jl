@@ -25,6 +25,7 @@ module MPIDistributedArrays
         win::MPI.Win
         localindices_set::Array{Array{UnitRange{Int64},1},1}
         size::Dims
+        localsize::Dims
 
         MArray{T}(dims::Dims,parallel;debug= false) where {T} = MArray{T}(MPI.COMM_WORLD,dims,parallel,debug= debug)
         MArray(::Type{T},dims::Dims,parallel;debug= false) where {T} = MArray{T}(MPI.COMM_WORLD,dims,parallel,debug= debug)
@@ -82,7 +83,7 @@ module MPIDistributedArrays
             localpart = Array{T,N}(undef,localdims...)
             win = MPI.Win_create(localpart,comm)
             return new{T,N,Array{T,N}}(localpart,localindices,myrank,nprocs,comm,arrayrank,win,
-            localindices_set,dims)
+            localindices_set,dims,size(localpart))
 
         end
 
