@@ -13,6 +13,11 @@ module MPIDistributedArrays
         return  MPI.Comm_size(MPI.COMM_WORLD)
     end
 
+    function free(a::MArray{T,N}) where {T,N}
+        MPI.Barrier(a.comm) 
+        MPI.free(a.win)
+    end
+
     struct MArray{T,N,A} <: AbstractArray{T,N}
         localpart::Union{Nothing,A}
         localindices::Array{UnitRange{Int64},1}
