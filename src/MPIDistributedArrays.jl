@@ -22,6 +22,7 @@ module MPIDistributedArrays
         arrayrank::Array{Int64,1}
         win::MPI.Win
         localindices_set::Array{Array{UnitRange{Int64},1},1}
+        size::Dims
 
         MArray{T}(dims::Dims,parallel;debug= false) where {T} = MArray{T}(MPI.COMM_WORLD,dims,parallel,debug= debug)
         MArray(::Type{T},dims::Dims,parallel;debug= false) where {T} = MArray{T}(MPI.COMM_WORLD,dims,parallel,debug= debug)
@@ -64,12 +65,12 @@ module MPIDistributedArrays
 
             if debug
                 for rank=0:nprocs-1
-                    isinside = get_local_or_not(localindices_set[rank+1],1,1,1)
+                    #isinside = get_local_or_not(localindices_set[rank+1],1,1,1)
 
 
                     if rank == myrank
                         println("myrank : $myrank localindices = ",localindices)
-                        println("isinside = $isinside")
+                        #println("isinside = $isinside")
                         #println("localindices_set: $localindices_set")
                     end
                     MPI.Barrier(comm)   
@@ -79,7 +80,7 @@ module MPIDistributedArrays
             localpart = Array{T,N}(undef,localdims...)
             win = MPI.Win_create(localpart,comm)
             return new{T,N,Array{T,N}}(localpart,localindices,myrank,nprocs,comm,arrayrank,win,
-            localindices_set)
+            localindices_set,dims)
 
         end
 
@@ -88,34 +89,40 @@ module MPIDistributedArrays
         
     end
 
+    Base.size(a::MArray) = a.size
+
     function Base.getindex(a::MArray{T,N,A},i...) where {T,N,A}
         result = Ref{T}()
-        target_rank,local_index = get_targetrank_and_index(a,i)
+        target_rank,local_index = get_targetrank_and_index(a,i...)
+        #println("target_rank ",target_rank)
         if target_rank == a.myrank
+            #println("target $local_index",a.localpart[local_index])
             result[] = a.localpart[local_index]
         else
+            #println("localindex = $local_index")
             MPI.Win_lock(MPI.LOCK_SHARED, target_rank, 0, a.win)
-            MPI.Get(result, 1, target_rank, local_index , a.win)
+            MPI.Get(result,  target_rank, local_index-1 , a.win)
             MPI.Win_unlock(target_rank, a.win)
         end
         return result[]
     end
 
     function get_local_or_not(indices,i...)
+        #println("indices, $indices i = $i")
         lenind = length(indices)
         isinside = true
         for idim = 1:lenind
             isinside *= i[idim] in indices[idim]
         end
-        return isinside
+        return isinside,lenind
     end
 
     function get_targetrank_and_index(A::MArray,i...)
         for rank=0:A.nprocs
-            isinside = get_local_or_not(A.localindices_set[rank+1],i)
-            if isinsise
-                #index = [i[idim] - A.localindices_set[rank+1][idim][1]+1 for idim=1:lenind]
-
+            isinside,lenind = get_local_or_not(A.localindices_set[rank+1],i...)
+            if isinside
+                index = [i[idim] - A.localindices_set[rank+1][idim][1]+1 for idim=1:lenind]
+                #println("index = $index")
                 prod = 1
                 index_1d = 1
                 for idim=1:lenind
@@ -152,6 +159,8 @@ module MPIDistributedArrays
             get_localindex!(localindex,A_local ,i)
             get_globalindex!(globalindex,A_local,localindex,)
             A_local.localpart[localindex...] = A[globalindex...]
+            #println("local $localindex",A_local.localpart[localindex...])
+            #println("global $globalindex",A[globalindex...])
         end
         return A_local
     end
