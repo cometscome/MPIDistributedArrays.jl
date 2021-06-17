@@ -24,8 +24,8 @@ module MPIDistributedArrays
         arrayrank::Array{Int64,1}
         win::MPI.Win
         localindices_set::Array{Array{UnitRange{Int64},1},1}
-        size::Dims
-        localsize::Dims
+        size::NTuple{N,Int64}
+        localsize::NTuple{N,Int64}
 
         MArray{T}(dims::Dims,parallel;debug= false) where {T} = MArray{T}(MPI.COMM_WORLD,dims,parallel,debug= debug)
         MArray(::Type{T},dims::Dims,parallel;debug= false) where {T} = MArray{T}(MPI.COMM_WORLD,dims,parallel,debug= debug)
@@ -36,6 +36,9 @@ module MPIDistributedArrays
             N = length(dims)
             nprocs = MPI.Comm_size(comm)
             myrank = MPI.Comm_rank(comm)
+
+            #println(typeof(comm))
+            #exit()
             
             if prod(parallel) != nprocs
                 if myrank == masterrank
@@ -46,6 +49,7 @@ module MPIDistributedArrays
             arrayrank = get_arrayrank(myrank,parallel)
             localindices = Array{UnitRange{Int64},1}(undef,N)
             localdims = zeros(Int64,N)
+            
 
             for idim =  1:length(dims)
                 @assert dims[idim] % parallel[idim] == 0 "$idim-th dimension: dims[$idim] % parallel[$idim] should be 0! now dims[$idim] = $(dims[idim]) and parallel[$idim] = $(parallel[idim])"
